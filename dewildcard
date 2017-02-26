@@ -6,7 +6,7 @@
 # replacing any 'from foo import *' with a multi-line
 # import of all the symbols in foo.
 #
-# You can then use pylint or similar to identify and 
+# You can then use pylint or similar to identify and
 # delete the unneeded symbols.
 #
 # See http://github.com/quentinsf/dewildcard for info.
@@ -21,10 +21,10 @@ import_all_re = re.compile(r'^\s*from\s*([\w.]*)\s*import\s*[*]')
 
 def import_all_string(module_name):
     importlib.import_module(module_name)
-    import_line = 'from %s import ( %%s )\n' % module_name
-    length = len(import_line) - 5
+    import_line = 'from %s import (%%s)\n' % module_name
+    length = len(import_line) - 4
     return import_line % (',\n' + length * ' ').join(
-        [a for a in dir(sys.modules[module_name]) if not a.startswith('_')] )
+        [a for a in dir(sys.modules[module_name]) if not a.startswith('_')])
 
 def main():
     for line in sys.stdin:
