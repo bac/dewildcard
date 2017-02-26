@@ -13,11 +13,12 @@
 #
 # Quentin Stafford-Fraser, 2015
 
+import fileinput
 import importlib
 import re
 import sys
 
-import_all_re = re.compile(r'^\s*from\s*([\w.]*)\s*import\s*[*]')
+IMPORT_ALL_RE = re.compile(r'^\s*from\s*([\w.]*)\s*import\s*[*]')
 
 def import_all_string(module_name):
     importlib.import_module(module_name)
@@ -27,11 +28,12 @@ def import_all_string(module_name):
         [a for a in dir(sys.modules[module_name]) if not a.startswith('_')])
 
 def main():
-    for line in sys.stdin:
-        match = import_all_re.match(line)
+    for line in fileinput.input(files=(sys.argv[1]), inplace=True):
+        match = IMPORT_ALL_RE.match(line)
         if match:
-            line = import_all_string(match.group(1))
-        sys.stdout.write(line)
+            sys.stdout.write(import_all_string(match.group(1)))
+        else:
+            sys.stdout.write(line)
 
 if __name__ == '__main__':
     main()
