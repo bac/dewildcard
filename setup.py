@@ -2,8 +2,7 @@
 
 from setuptools import setup
 
-setup(name="dewildcard",
-      # packages = ['dewildcard'],
+setup(name="python-dewildcard",
       py_modules = ['dewildcard'],
       entry_points = {
         'console_scripts': [
