@@ -16,24 +16,58 @@
 import fileinput
 import importlib
 import re
+import os
 import sys
+import glob
+
+from contextlib import suppress
+from concurrent.futures import ProcessPoolExecutor
 
 IMPORT_ALL_RE = re.compile(r'^\s*from\s*([\w.]*)\s*import\s*[*]')
 
-def import_all_string(module_name):
-    importlib.import_module(module_name)
-    import_line = 'from %s import (%%s)\n' % module_name
+def import_all_string(package_name, package):
+    module = importlib.import_module(package_name, package)
+
+    import_line = 'from %s import (%%s)\n' % package_name
     length = len(import_line) - 4
     return import_line % (',\n' + length * ' ').join(
-        [a for a in dir(sys.modules[module_name]) if not a.startswith('_')])
+        [a for a in dir(module) if not a.startswith('_')])
+
+
+def process_file(file):
+    module_name = os.path.relpath(file, os.getcwd())
+    module_name = '.'.join(module_name.split(os.sep))
+    module_name, _ = os.path.splitext(module_name)
+    
+    package_name, _ = os.path.splitext(module_name)
+    try:
+        importlib.import_module(package_name)
+    except:
+        return ''
+
+    with fileinput.input(files=(file), inplace=True) as fi:
+        for line in fi:
+            match = IMPORT_ALL_RE.match(line)
+            if match:
+                indentation = len(line) - len(line.lstrip())
+                try:
+                    sys.stdout.write(
+                        line[:indentation] +
+                        import_all_string(match.group(1),
+                                        package=package_name))
+                except:
+                    sys.stdout.write(line)
+            else:
+                sys.stdout.write(line)
+
+    return module_name
+
 
 def main():
-    for line in fileinput.input(files=(sys.argv[1]), inplace=True):
-        match = IMPORT_ALL_RE.match(line)
-        if match:
-            sys.stdout.write(import_all_string(match.group(1)))
-        else:
-            sys.stdout.write(line)
+    files = glob.glob('./**/*.py', recursive=True)
+    executor = ProcessPoolExecutor()
+    for module_name in executor.map(process_file, files):
+        print(module_name)
 
 if __name__ == '__main__':
     main()
