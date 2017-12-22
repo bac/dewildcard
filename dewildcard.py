@@ -31,8 +31,12 @@ def import_all_string(module_name, package):
 
     import_line = 'from %s import (%%s)\n' % module_name
     length = len(import_line) - 4
-    return import_line % (',\n' + length * ' ').join(
-        [a for a in dir(module) if not a.startswith('_')])
+    if hasattr(module, '__all__'):
+        module_globals = module.__all__
+    else:
+        module_globals = (a for a in dir(module) if not a.startswith('_'))
+
+    return import_line % (',\n' + length * ' ').join(module_globals)
 
 
 def process_file(file):
