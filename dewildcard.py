@@ -13,37 +13,44 @@
 #
 # Quentin Stafford-Fraser, 2015
 
+import argparse
 import fileinput
 import importlib
 import re
 import os
 import sys
 import glob
-
-from contextlib import suppress
+from functools import partial
 from concurrent.futures import ProcessPoolExecutor
 
 IMPORT_ALL_RE = re.compile(r'^\s*from\s*([\w.]*)\s*import\s*[*]')
 
-def import_all_string(module_name, package):
+
+def import_all_string(module_name, package, single_line):
     importlib.import_module(package)
     module = importlib.import_module(module_name, package)
 
-    import_line = 'from %s import (%%s)\n' % module_name
-    length = len(import_line) - 4
+    if single_line:
+        import_line = 'from %s import %%s\n' % module_name
+        length = 0
+        separator = ', '
+    else:
+        import_line = 'from %s import (%%s)\n' % module_name
+        length = len(import_line) - 4
+        separator = ',\n'
     if hasattr(module, '__all__'):
         module_globals = module.__all__
     else:
         module_globals = (a for a in dir(module) if not a.startswith('_'))
 
-    return import_line % (',\n' + length * ' ').join(module_globals)
+    return import_line % (separator + length * ' ').join(module_globals)
 
 
-def process_file(file):
+def process_file(arguments, file):
     module_name = os.path.relpath(file, os.getcwd())
     module_name = '.'.join(module_name.split(os.sep))
     module_name, _ = os.path.splitext(module_name)
-    
+
     package_name, _ = os.path.splitext(module_name)
 
     with fileinput.input(files=(file), inplace=True) as fi:
@@ -56,19 +63,29 @@ def process_file(file):
                 indentation = len(line) - len(line.lstrip())
                 sys.stdout.write(
                     line[:indentation] +
-                    import_all_string(match.group(1),
-                                    package=package_name))
-            except:
+                    import_all_string(
+                        match.group(1),
+                        package_name,
+                        arguments.single_line)
+                )
+            except BaseException:
                 sys.stdout.write(line)
 
     return module_name
 
 
-def main():
+def main(arguments):
     files = glob.glob('./**/*.py', recursive=True)
     executor = ProcessPoolExecutor()
-    for module_name in executor.map(process_file, files):
+    for module_name in executor.map(partial(process_file, arguments), files):
         print(module_name)
 
+
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--single-line',
+        help="Write imports on a single line",
+        action="store_true")
+    arguments = parser.parse_args()
+    main(arguments)
